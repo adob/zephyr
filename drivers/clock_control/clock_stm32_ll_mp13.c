@@ -21,6 +21,19 @@
 /** Offset between RCC (Reset and Clock Control) enable-set and enable-clear registers. */
 #define RCC_CLR_OFFSET		0x4
 
+#if DT_NODE_HAS_PROP(DT_NODELABEL(rcc), apb3_prescaler)
+#define STM32_APB3_DIV DT_PROP(DT_NODELABEL(rcc), apb3_prescaler)
+#endif
+#if DT_NODE_HAS_PROP(DT_NODELABEL(rcc), apb4_prescaler)
+#define STM32_APB4_DIV DT_PROP(DT_NODELABEL(rcc), apb4_prescaler)
+#endif
+#if DT_NODE_HAS_PROP(DT_NODELABEL(rcc), apb5_prescaler)
+#define STM32_APB5_DIV DT_PROP(DT_NODELABEL(rcc), apb5_prescaler)
+#endif
+#if DT_NODE_HAS_PROP(DT_NODELABEL(rcc), apb6_prescaler)
+#define STM32_APB6_DIV DT_PROP(DT_NODELABEL(rcc), apb6_prescaler)
+#endif
+
 /** @brief Verifies clock is part of active clock configuration */
 int enabled_clock(uint32_t src_clk)
 {
@@ -350,11 +363,62 @@ static void set_up_fixed_clock_sources(void)
 	}
 }
 
+/**
+ * Convert a power-of-two divisor to its STM32MP13 RCC encoding.
+ * @param divisor Clock divisor.
+ * @return Encoded RCC prescaler value.
+ */
+static uint32_t stm32_mp13_prescaler(uint32_t divisor)
+{
+	return find_lsb_set(divisor) - 1U;
+}
+
+/** Program STM32MP13 bus prescalers from devicetree. */
+static void set_up_bus_prescalers(void)
+{
+	LL_RCC_SetMLHCLKPrescaler(stm32_mp13_prescaler(STM32_AHB_PRESCALER));
+	while ((RCC->MLAHBDIVR & RCC_MLAHBDIVR_MLAHBDIVRDY) == 0U) {
+	}
+
+	LL_RCC_SetAPB1Prescaler(stm32_mp13_prescaler(STM32_APB1_PRESCALER));
+	while ((RCC->APB1DIVR & RCC_APB1DIVR_APB1DIVRDY) == 0U) {
+	}
+
+	LL_RCC_SetAPB2Prescaler(stm32_mp13_prescaler(STM32_APB2_PRESCALER));
+	while ((RCC->APB2DIVR & RCC_APB2DIVR_APB2DIVRDY) == 0U) {
+	}
+
+#ifdef STM32_APB3_DIV
+	LL_RCC_SetAPB3Prescaler(stm32_mp13_prescaler(STM32_APB3_DIV));
+	while ((RCC->APB3DIVR & RCC_APB3DIVR_APB3DIVRDY) == 0U) {
+	}
+#endif
+
+#ifdef STM32_APB4_DIV
+	LL_RCC_SetAPB4Prescaler(stm32_mp13_prescaler(STM32_APB4_DIV));
+	while ((RCC->APB4DIVR & RCC_APB4DIVR_APB4DIVRDY) == 0U) {
+	}
+#endif
+
+#ifdef STM32_APB5_DIV
+	LL_RCC_SetAPB5Prescaler(stm32_mp13_prescaler(STM32_APB5_DIV));
+	while ((RCC->APB5DIVR & RCC_APB5DIVR_APB5DIVRDY) == 0U) {
+	}
+#endif
+
+#ifdef STM32_APB6_DIV
+	LL_RCC_SetAPB6Prescaler(stm32_mp13_prescaler(STM32_APB6_DIV));
+	while ((RCC->APB6DIVR & RCC_APB6DIVR_APB6DIVRDY) == 0U) {
+	}
+#endif
+}
+
 static int stm32_clock_control_init(const struct device *dev)
 {
 	ARG_UNUSED(dev);
 
 	set_up_fixed_clock_sources();
+	set_up_bus_prescalers();
 
 #if STM32_SYSCLK_SRC_HSE
 
